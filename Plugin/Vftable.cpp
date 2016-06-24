@@ -165,12 +165,12 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 	}
 	if (stristr(sz, "_unk"))
 	{
-		//msg("  "EAFORMAT" ** Unk member %s for %s **\n", eaMember, sz, szClassName);
+		//msg("  "EAFORMAT" ** Unk member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isUnk = true;
 	}
 	if (stristr(sz, "_Func"))
 	{
-		//msg("  "EAFORMAT" ** Func member %s for %s **\n", eaMember, sz, szClassName);
+		//msg("  "EAFORMAT" ** Func member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isFunc = true;
 	}
 	if (isUnk || isFunc)
@@ -272,10 +272,11 @@ int vftable::tryKnownMember(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR prefixN
 			if (isCode(flags))
 			{
 				ea_t ea = eaMember;
-				while (ea_t eaAddress = getRelJmpTarget(ea) != BADADDR)
+				ea_t eaAddress = BADADDR;
+				while ((eaAddress = getRelJmpTarget(ea)) != BADADDR)
 				{
-					set_name(eaAddress, "", SN_NOWARN);	// will recalc the j_Name when Name is updated
-					set_cmt(eaAddress, "", false);
+					set_name(ea, "", SN_NOWARN);	// will recalc the j_Name when Name is updated
+					set_cmt(ea, "", false);
 					ea = eaAddress;
 				}
 
@@ -285,7 +286,7 @@ int vftable::tryKnownMember(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR prefixN
 					bool isDefaultCmnt = hasDefaultComment(ea, szCmnt, &szTemp) || (0 == strlen(szCmnt));
 					if (isDefaultCmnt)
 						set_cmt(ea, "", false);
-					//msg("%s ="EAFORMAT" ** Processed member %s (%d) at "EAFORMAT" from "EAFORMAT" ["EAFORMAT"] **\n", eaJump != BADADDR ? "\t" : "", eaAddress, szNewName, iIndex, vft, parentvft, flags);
+					//msg("%s ="EAFORMAT" ** Processed member %s (%d) at "EAFORMAT" from "EAFORMAT" ["EAFORMAT"] **\n", eaJump != BADADDR ? "\t" : "", ea, szCurrName, iIndex, vft, parentvft, flags);
 				}
 			}
 			else
