@@ -19,9 +19,10 @@ namespace vftable
 
 // Attempt to get information of and fix vftable at address
 // Return TRUE along with info if valid vftable parsed at address
-BOOL vftable::getTableInfo(ea_t ea, vtinfo &info)
+BOOL vftable::getTableInfo(ea_t ea, vtinfo &info, size_t parentSize)
 {
     ZeroMemory(&info, sizeof(vtinfo));
+	int motive = 0;
 
 	// Start of a vft should have an xref and a name (auto, or user, etc).
     // Ideal flags 32bit: FF_DWRD, FF_0OFF, FF_REF, FF_NAME, FF_DATA, FF_IVL
@@ -35,6 +36,7 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info)
 
         // Determine the vft's method count
         ea_t start = info.start = ea;
+		size_t index = 0;
         while (TRUE)
         {
             // Should be an ea_t offset to a function here (could be unknown if dirty IDB)
@@ -43,7 +45,7 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info)
             flags_t indexFlags = get_flags_novalue(ea);
             if (!(isEa(indexFlags) || isUnknown(indexFlags)))
             {
-                //msg(" ******* 1\n");
+                motive = 1;
                 break;
             }
 
@@ -55,31 +57,34 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info)
                 if (memberPtr == 0)
                     fixEa(ea);
 
-                //msg(" ******* 2\n");
+                motive = 2;
                 break;
             }
 
             // Should see code for a good vft method here, but it could be dirty
             flags_t flags = get_flags_novalue(memberPtr);
             if (!(isCode(flags) || isUnknown(flags)))
-            {
-                //msg(" ******* 3\n");
-                break;
-            }
+                if (ea == start)
+                    do_unknown(memberPtr, DOUNK_SIMPLE);
+                else
+                {
+                    motive = 3;
+                    break;
+                }
 
-            if (ea != start)
+            if (index && (index >= parentSize))	// unless we are still smaller than our parent
             {
                 // If we see a ref after first index it's probably the beginning of the next vft or something else
                 if (hasRef(indexFlags))
                 {
-                    //msg(" ******* 4\n");
+                    motive = 4;
                     break;
                 }
 
                 // If we see a COL here it must be the start of another vftable
                 if (RTTI::_RTTICompleteObjectLocator::isValid(memberPtr))
                 {
-                    //msg(" ******* 5\n");
+                    motive = 5;
                     break;
                 }
             }
@@ -89,6 +94,7 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info)
             fixFunction(memberPtr);
 
             ea += sizeof(ea_t);
+			index++;
         };
 
         // Reached the presumed end of it
@@ -100,7 +106,9 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info)
         }
     }
 
-    //dumpFlags(ea);
+    if (BADADDR != ea)
+        msg("Cannot interpret vftable: "EAFORMAT": "EAFORMAT"-"EAFORMAT", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
+	// dumpFlags(ea);
     return(FALSE);
 }
 
@@ -156,12 +164,17 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 
 	bool isUnk = false;
 	bool isFunc = false;
+	bool isPure = false;
 	char sz[MAXSTR];
 	strcpy_s(sz, MAXSTR - 1, szBase);
 	while (LPSTR sep = strstr(sz, "::"))
 	{
 		sep[0] = '_';
 		sep[1] = '_';
+	}
+	while (LPSTR sep = strstr(sz, ":"))
+	{
+		sep[0] = '_';
 	}
 	if (stristr(sz, "_unk"))
 	{
@@ -173,7 +186,12 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 		//msg("  "EAFORMAT" ** Func member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isFunc = true;
 	}
-	if (isUnk || isFunc)
+	if (stristr(sz, "__purecall"))
+	{
+		//msg("  "EAFORMAT" ** Pure member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
+		isPure = true;
+	}
+	if (isUnk || isFunc || isPure)
 		return true;
 	return false;
 }
@@ -194,6 +212,7 @@ char * get_any_indented_cmt(ea_t entry)
 bool vftable::hasDefaultComment(ea_t entry, LPSTR cmnt, LPSTR* cmntData)
 {
 	flags_t flags = getFlags(entry);
+	bool isDefault = false;
 
 	if (has_cmt(flags))
 	{
@@ -202,21 +221,26 @@ bool vftable::hasDefaultComment(ea_t entry, LPSTR cmnt, LPSTR* cmntData)
 		//msg("  "EAFORMAT" ** Comment '%s' **\n", entry, cmnt);
 		if (cmntData && strstr(cmnt, " (#Func ") == cmnt)
 		{
-			//bool isDefault = strstr(cmnt, "::Func");
-			//if (!isDefault)
-			//{
-			//	// Check #Func and Func # are identical
-			//	sz = strchr(cmnt, ')');
-			//	UINT l = strlen(cmnt) - strlen(sz) - strlen(" (#Func )");
-			//	char s[MAXSTR];
-			//	strncpy_s(s, cmnt + strlen(" (#Func "), l);
-			//	long v = strtol(s, NULL, 16);
-			//	isDefault = true;
-			//}
-				
+			sz = strstr(cmnt, "::Func");
+			if (sz)
+			{
+				// ignore those comments
+				sz = strchr(cmnt, ')');
+				isDefault = true;
+			}
+			else
+			{
+				sz = strstr(cmnt, "::purecall");
+				if (sz)
+				{
+					// ignore those comments
+					sz = strchr(cmnt, ')');
+					isDefault = true;
+				}
+			}
 			//msg("  "EAFORMAT" ** Default comment '%s' [%s] **\n", entry, cmnt, sz);
 			*cmntData = strchr(cmnt, ')') + 2;
-			return true;
+			return isDefault;
 		}
 	}
 	//else

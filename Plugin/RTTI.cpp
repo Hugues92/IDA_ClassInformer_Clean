@@ -399,7 +399,7 @@ static void doStructRTTI(ea_t ea, tid_t tid, __in_opt LPSTR typeName = NULL, BOO
 
 
 // Read a string from IDB at address
-static int readIdaString(ea_t ea, __out LPSTR buffer, int bufferSize)
+static int readIdaString(ea_t ea, __out LPSTR buffer, UINT bufferSize)
 {
     // Return cached name if it exists
     stringMap::iterator it = stringCache.find(ea);
@@ -410,14 +410,14 @@ static int readIdaString(ea_t ea, __out LPSTR buffer, int bufferSize)
 
 		if (len > RTTI::maxClassNameLength) RTTI::maxClassNameLength = len;
 
-		if (len > (UINT)bufferSize) len = bufferSize;
+		if (len > bufferSize) len = bufferSize;
         strncpy(buffer, str, len); buffer[len] = 0;
         return(len);
     }
     else
     {
         // Read string at ea if it exists
-        int len = get_max_ascii_length(ea, ASCSTR_C, ALOPT_IGNHEADS);
+        UINT len = get_max_ascii_length(ea, ASCSTR_C, ALOPT_IGNHEADS);
         if (len > 0)
         {
             if (len > bufferSize) len = bufferSize;
@@ -1123,7 +1123,7 @@ void RTTI::CalcCTypeName(LPSTR cTypeName, LPCSTR prefixName)
 		while (LPSTR sz = strchr(cTypeName, '[')) *sz = '_';
 		while (LPSTR sz = strchr(cTypeName, ']')) *sz = '_';
 	}
-	//msgR("  ** PrefixName:'%s' as '%s'\n", prefixName, ci->m_cTypeName);
+	//msgR("  ** PrefixName:'%s' as '%s'\n", prefixName, cTypeName);
 }
 
 bool RTTI::AddNonRTTIclass(LPCSTR prefixName)
@@ -1218,7 +1218,7 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
 
     // Get vftable info
     vftable::vtinfo vi;
-    if (vftable::getTableInfo(vft, vi))
+    if (vftable::getTableInfo(vft, vi, 0))
     {
         //msg(EAFORMAT" - "EAFORMAT" c: %d\n", vi.start, vi.end, vi.methodCount);
 
@@ -1643,7 +1643,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 
 	// Get vftable info
 	vftable::vtinfo vi;
-	if (vftable::getTableInfo(vft, vi))
+	if (vftable::getTableInfo(vft, vi, 0))
 	{
 		//msg(EAFORMAT" - "EAFORMAT" c: %d\n", vi.start, vi.end, vi.methodCount);
 
@@ -1704,12 +1704,14 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 					placed++;
 
 					bool found = false;
+					size_t parentSize = 0;
 					for (UINT j = 0; j < classList.size(); j++)
 						if (0 == stricmp(classList[j].m_className, plainName))
 						{
 							if (!RTTI::classList[j].m_done)
 								processVftablePart2(RTTI::classList[j].m_vft, RTTI::classList[j].m_col);
 							found = true;
+							parentSize = ((RTTI::classList[j].m_end - RTTI::classList[j].m_start) / sizeof(ea_t));
 							break;
 						}
 					if (!found)
@@ -1719,6 +1721,9 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 					}
 					//else
 					//	msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+					
+					// Make sure our vfTable is at least as big as our parent's
+					vftable::getTableInfo(vft, vi, parentSize);
 
 					if (i == 1)	// the direct parent is the only parent
 					{
@@ -1764,6 +1769,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 				{
 					char plainName[MAXSTR];
 					bool found = false;
+					size_t parentSize = 0;
 					getPlainTypeName(list[k].m_name, plainName);
 					for (UINT i = 0; i < classList.size(); i++)
 						if (0 == stricmp(classList[i].m_className, plainName))
@@ -1772,6 +1778,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 								processVftablePart2(RTTI::classList[i].m_vft, RTTI::classList[i].m_col);
 							realNumBaseClasses = index + classList[i].m_numBaseClasses;
 							found = true;
+							parentSize = ((RTTI::classList[i].m_end - RTTI::classList[i].m_start) / sizeof(ea_t));
 							break;
 						}
 					if (!found)
@@ -1781,6 +1788,9 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 					}
 					//else
 					//	msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+
+					// Make sure our vfTable is at least as big as our parent's
+					vftable::getTableInfo(vft, vi, parentSize);
 				}
 			}
 			else
@@ -1817,6 +1827,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 					}
 				}
 				bool found = false;
+				size_t parentSize = 0;
 				if (bi)
 					for (UINT i = 0; i < classList.size(); i++)
 						if (0 == stricmp(classList[i].m_className, plainName))
@@ -1825,6 +1836,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 								processVftablePart2(RTTI::classList[i].m_vft, RTTI::classList[i].m_col);
 							realNumBaseClasses = index + classList[i].m_numBaseClasses;
 							found = true;
+							parentSize = ((RTTI::classList[i].m_end - RTTI::classList[i].m_start) / sizeof(ea_t));
 							break;
 						}
 				if (!found)
@@ -1834,6 +1846,9 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 				}
 				//else
 				//	msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+
+				// Make sure our vfTable is at least as big as our parent's
+				vftable::getTableInfo(vft, vi, parentSize);
 			}
 			//msg(" ** continuing Class '%s' bi:%08X {%1d} %d / %d \n", ci->m_classname, bi, isTopLevel, numBaseClasses, realNumBaseClasses);
 

@@ -520,17 +520,21 @@ void fixEa(ea_t ea)
 }
 
 // Make address a function
-void fixFunction(ea_t ea)
+bool fixFunction(ea_t ea)
 {
     flags_t flags = get_flags_novalue(ea);
     if (!isCode(flags))
     {
         create_insn(ea);
-        add_func(ea, BADADDR);
+		if (!isCode(flags))
+			return FALSE;
+		else
+			add_func(ea, BADADDR);
     }
     else
     if (!isFunc(flags))
         add_func(ea, BADADDR);
+	return TRUE;
 }
 
 // Get IDA EA bit value with verification
@@ -1030,7 +1034,7 @@ static BOOL findVftables()
 		msgR("vftable scan time: %.3f\n", (getTimeStamp() - startTime));
 #endif
 	}
-	CATCH()
+	CATCHTRUE()
 
 	return(FALSE);
 }
