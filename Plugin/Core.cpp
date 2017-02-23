@@ -418,6 +418,15 @@ void CORE_Process(int arg)
                 RTTI::addDefinitionsToIda();
             }
 
+		    {
+			    // Process global and static ctor sections
+			    msg("\nProcessing C/C++ ctor & dtor tables.\n");
+                refreshUI();
+                if (!(aborted = processStaticTables()))
+		            msg("Processing time: %s.\n", timeString(getTimeStamp() - s_startTime));
+                refreshUI();
+		    }
+
             if (!aborted)
             {
                 // Get RTTI data
@@ -478,6 +487,470 @@ static void showEndStats()
 
 
 // ================================================================================================
+
+static void clearDefaultName(ea_t ear)
+{
+	if (hasUniqueName(ear))
+	{
+		qstring n = get_true_name(ear);
+		LPCSTR nn = n.c_str();
+		if (nn == strstr(nn, "__ICI__"))
+			set_name(ear, "");
+	}
+}
+
+static void clearDefaultComment(ea_t ea)
+{
+	if (has_cmt(get_flags_novalue(ea)))
+	{
+		char comment[MAXSTR]; comment[SIZESTR(comment)] = 0;
+		size_t s = get_cmt(ea, TRUE, comment, MAXSTR);
+		if (strstr(comment, "(#classinformer)"))
+			set_cmt(ea, "", TRUE);
+	}
+}
+
+// Fix/create label and comment C/C++ initializer tables
+static void setIntializerTable(ea_t start, ea_t end, BOOL isCpp)
+{
+	try
+	{
+        if (UINT count = ((end - start) / sizeof(ea_t)))
+        {
+            // Set table elements as pointers
+            ea_t ea = start;
+            while (ea <= end)
+            {
+                fixEa(ea);
+
+                // Might fix missing/messed stubs
+                if (ea_t func = get_32bit(ea))
+                    fixFunction(func);
+
+                ea += sizeof(ea_t);
+            };
+
+			size_t index = 0;
+			for (ea_t ea = start; ea < end; ea += sizeof(ea_t))
+			{
+				ea_t ear;
+				if (getVerify_t(ea, ear))
+				{
+					// Missing/bad code?
+					if (get_func(ear))
+					{
+						clearDefaultName(ear);
+					}
+				}
+				index++;
+			}
+
+			index = 0;
+			for (ea_t ea = start + sizeof(ea_t); ea < end; ea += sizeof(ea_t))
+			{
+				ea_t ear;
+				if (getVerify_t(ea, ear))
+				{
+					clearDefaultComment(ea);
+				}
+				index++;
+			}
+
+			if (isCpp)
+                staticCppCtorCnt++;
+            else
+                staticCCtorCnt++;
+        }
+    }
+	CATCH()
+}
+
+// Fix/create label and comment C/C++ terminator tables
+static void setTerminatorTable(ea_t start, ea_t end)
+{
+	try
+	{
+        if (UINT count = ((end - start) / sizeof(ea_t)))
+        {
+            // Set table elements as pointers
+            ea_t ea = start;
+            while (ea <= end)
+            {
+                fixEa(ea);
+
+                // Fix function
+                if (ea_t func = getEa(ea))
+                    fixFunction(func);
+
+                ea += sizeof(ea_t);
+            };
+
+			size_t index = 0;
+			for (ea_t ea = start; ea < end; ea += sizeof(ea_t))
+			{
+				ea_t ear;
+				if (getVerify_t(ea, ear))
+				{
+					// Missing/bad code?
+					if (get_func(ear))
+					{
+						clearDefaultName(ear);
+					}
+				}
+				index++;
+			}
+
+			index = 0;
+			for (ea_t ea = start + sizeof(ea_t); ea < end; ea += sizeof(ea_t))
+			{
+				ea_t ear;
+				if (getVerify_t(ea, ear))
+				{
+					clearDefaultComment(ea);
+				}
+				index++;
+			}
+
+			staticCDtorCnt++;
+        }
+    }
+	CATCH()
+}
+
+// "" for when we are uncertain of ctor or dtor type table
+static void setCtorDtorTable(ea_t start, ea_t end)
+{
+	try
+	{
+        if (UINT count = ((end - start) / sizeof(ea_t)))
+        {
+            // Set table elements as pointers
+            ea_t ea = start;
+            while (ea <= end)
+            {
+                fixEa(ea);
+
+                // Fix function
+                if (ea_t func = getEa(ea))
+                    fixFunction(func);
+
+                ea += sizeof(ea_t);
+            };
+
+			size_t index = 0;
+			for (ea_t ea = start; ea < end; ea += sizeof(ea_t))
+			{
+				ea_t ear;
+				if (getVerify_t(ea, ear))
+				{
+					// Missing/bad code?
+					if (get_func(ear))
+					{
+						clearDefaultName(ear);
+					}
+				}
+				index++;
+			}
+
+			index = 0;
+			for (ea_t ea = start + sizeof(ea_t); ea < end; ea += sizeof(ea_t))
+			{
+				ea_t ear;
+				if (getVerify_t(ea, ear))
+				{
+					clearDefaultComment(ea);
+				}
+				index++;
+			}
+
+			staticCtorDtorCnt++;
+        }
+    }
+	CATCH()
+}
+
+
+// Process redister based _initterm()
+static void processRegisterInitterm(ea_t start, ea_t end, ea_t call)
+{
+    if ((end != BADADDR) && (start != BADADDR))
+    {
+        // Should be in the same segment
+        if (getseg(start) == getseg(end))
+        {
+            if (start > end)
+                swap_t(start, end);
+
+            msg("    "EAFORMAT" to "EAFORMAT" CTOR table.\n", start, end);
+            setIntializerTable(start, end, TRUE);
+            set_cmt(call, "_initterm", TRUE);
+        }
+        else
+            msg("  ** Bad address range of "EAFORMAT", "EAFORMAT" for \"_initterm\" type ** <click address>.\n", start, end);
+    }
+}
+
+static UINT doInittermTable(func_t *func, ea_t start, ea_t end, LPCTSTR name)
+{
+    UINT found = FALSE;
+
+    if ((start != BADADDR) && (end != BADADDR))
+    {
+        // Should be in the same segment
+        if (getseg(start) == getseg(end))
+        {
+            if (start > end)
+                swap_t(start, end);
+
+            // Try to determine if we are in dtor or ctor section
+            if (func)
+            {
+                char funcName[MAXSTR]; funcName[SIZESTR(funcName)] = 0;
+                qstring fn;
+                if (get_long_name(&fn, func->startEA))
+                {
+                    strncpy(funcName, fn.c_str(), (MAXSTR - 1));
+                    _strlwr(funcName);
+
+                    // Start/ctor?
+                    if (strstr(funcName, "cinit") || strstr(funcName, "tmaincrtstartup") || strstr(funcName, "start"))
+                    {
+                        msg("    "EAFORMAT" to "EAFORMAT" CTOR table.\n", start, end);
+                        setIntializerTable(start, end, TRUE);
+                        found = TRUE;
+                    }
+                    else
+                    // Exit/dtor function?
+                    if (strstr(funcName, "exit"))
+                    {
+                        msg("    "EAFORMAT" to "EAFORMAT" DTOR table.\n", start, end);
+                        setTerminatorTable(start, end);
+                        found = TRUE;
+                    }
+                }
+            }
+
+            if (!found)
+            {
+                // Fall back to generic assumption
+                msg("    "EAFORMAT" to "EAFORMAT" CTOR/DTOR table.\n", start, end);
+                setCtorDtorTable(start, end);
+                found = TRUE;
+            }
+        }
+        else
+            msg("    ** Miss matched segment table addresses "EAFORMAT", "EAFORMAT" for \"%s\" type **\n", start, end, name);
+    }
+    else
+        msg("    ** Bad input address range of "EAFORMAT", "EAFORMAT" for \"%s\" type **\n", start, end, name);
+
+    return(found);
+}
+
+// Process _initterm function
+// Returns TRUE if at least one found
+static BOOL processInitterm(ea_t address, LPCTSTR name)
+{
+    msg(EAFORMAT" processInitterm: \"%s\" \n", address, name);
+    UINT count = 0;
+
+    // Walk xrefs
+    ea_t xref = get_first_fcref_to(address);
+    while (xref && (xref != BADADDR))
+    {
+        msg("  "EAFORMAT" \"%s\" xref.\n", xref, name);
+
+        // Should be code
+        if (isCode(get_flags_novalue(xref)))
+        {
+            do
+            {
+                // The most common are two instruction arguments
+                // Back up two instructions
+                ea_t instruction1 = prev_head(xref, 0);
+                if (instruction1 == BADADDR)
+                    break;
+                ea_t instruction2 = prev_head(instruction1, 0);
+                if (instruction2 == BADADDR)
+                    break;
+
+                // Bail instructions are past the function start now
+                func_t *func = get_func(xref);
+                if (func && (instruction2 < func->startEA))
+                {
+                    //msg("   "EAFORMAT" arg2 outside of contained function **\n", func->startEA);
+                    break;
+                }
+
+                struct ARG2PAT
+                {
+                    LPCSTR pattern;
+                    UINT start, end, padding;
+                } static const ALIGN(16) arg2pat[] =
+                {
+                    #ifndef __EA64__
+                    { "68 ?? ?? ?? ?? 68 ?? ?? ?? ??", 6, 1 },          // push offset s, push offset e
+                    { "B8 ?? ?? ?? ?? C7 04 24 ?? ?? ?? ??", 8, 1 },    // mov [esp+4+var_4], offset s, mov eax, offset e   Maestia
+                    { "68 ?? ?? ?? ?? B8 ?? ?? ?? ??", 6, 1 },          // mov eax, offset s, push offset e
+                    #else
+                    { "48 8D 15 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ??", 3, 3 },  // lea rdx,s, lea rcx,e
+                    #endif
+                };
+                BOOL matched = FALSE;
+                for (UINT i = 0; (i < qnumber(arg2pat)) && !matched; i++)
+                {
+                    ea_t match = find_binary(instruction2, xref, arg2pat[i].pattern, 16, (SEARCH_DOWN | SEARCH_NOBRK | SEARCH_NOSHOW));
+                    if (match != BADADDR)
+                    {
+                        #ifndef __EA64__
+                        ea_t start = getEa(match + arg2pat[i].start);
+                        ea_t end   = getEa(match + arg2pat[i].end);
+                        #else
+                        UINT startOffset = get_32bit(instruction1 + arg2pat[i].start);
+                        UINT endOffset   = get_32bit(instruction2 + arg2pat[i].end);
+                        ea_t start = (instruction1 + 7 + *((PINT) &startOffset)); // TODO: 7 is hard coded instruction length, put this in arg2pat table?
+                        ea_t end   = (instruction2 + 7 + *((PINT) &endOffset));
+                        #endif
+                        msg("  "EAFORMAT" Two instruction pattern match #%d\n", match, i);
+                        count += doInittermTable(func, start, end, name);
+                        matched = TRUE;
+                        break;
+                    }
+                }
+
+                if (!matched)
+                    msg("  ** arguments not located!\n");
+
+            } while (FALSE);
+        }
+        else
+            msg("  "EAFORMAT" ** \"%s\" xref is not code! **\n", xref, name);
+
+        xref = get_next_fcref_to(address, xref);
+    };
+
+    msg(" \n");
+    return(count > 0);
+}
+
+
+// Process global/static ctor & dtor tables.
+// Returns TRUE if user aborted
+static BOOL processStaticTables()
+{
+    staticCppCtorCnt = staticCCtorCnt = staticCtorDtorCnt = staticCDtorCnt = 0;
+
+    // x64 __tmainCRTStartup, _CRT_INIT
+
+	try
+	{
+        // Locate _initterm() and _initterm_e() functions
+        STRMAP inittermMap;
+        func_t  *cinitFunc = NULL;
+        UINT funcCount = get_func_qty();
+        for (UINT i = 0; i < funcCount; i++)
+        {
+            if (func_t *func = getn_func(i))
+            {
+                char name[MAXSTR]; name[SIZESTR(name)] = 0;
+                qstring n;
+                if (get_long_name(&n, func->startEA))
+                {
+                    strncpy(name, n.c_str(), (MAXSTR - 1));
+                    int len = strlen(name);
+                    if (len >= SIZESTR("_cinit"))
+                    {
+                        if (strcmp((name + (len - SIZESTR("_cinit"))), "_cinit") == 0)
+                        {
+                            // Skip stub functions
+                            if (func->size() > 16)
+                            {
+                                msg(EAFORMAT" C: \"%s\", %d bytes.\n", func->startEA, name, func->size());
+                                _ASSERT(cinitFunc == NULL);
+                                cinitFunc = func;
+                            }
+                        }
+                        else
+                        if ((len >= SIZESTR("_initterm")) && (strcmp((name + (len - SIZESTR("_initterm"))), "_initterm") == 0))
+                        {
+                            msg(EAFORMAT" I: \"%s\", %d bytes.\n", func->startEA, name, func->size());
+                            inittermMap[func->startEA] = name;
+                        }
+                        else
+                        if ((len >= SIZESTR("_initterm_e")) && (strcmp((name + (len - SIZESTR("_initterm_e"))), "_initterm_e") == 0))
+                        {
+                            msg(EAFORMAT" E: \"%s\", %d bytes.\n", func->startEA, name, func->size());
+                            inittermMap[func->startEA] = name;
+                        }
+                    }
+                }
+            }
+        }
+        refreshUI();
+
+        // Look for import versions
+        {
+            static LPCSTR imports[] =
+            {
+                "__imp__initterm", "__imp__initterm_e"
+            };
+            for (UINT i = 0; i < qnumber(imports); i++)
+            {
+                ea_t adress = get_name_ea(BADADDR, imports[i]);
+                if (adress != BADADDR)
+                {
+                    if (inittermMap.find(adress) == inittermMap.end())
+                    {
+                        msg(EAFORMAT" import: \"%s\".\n", adress, imports[i]);
+                        inittermMap[adress] = imports[i];
+                    }
+                }
+            }
+        }
+
+        // Process register based _initterm() calls inside _cint()
+        if (cinitFunc)
+        {
+            struct CREPAT
+            {
+                LPCSTR pattern;
+                UINT start, end, call;
+            } static const ALIGN(16) pat[] =
+            {
+                { "B8 ?? ?? ?? ?? BE ?? ?? ?? ?? 59 8B F8 3B C6 73 0F 8B 07 85 C0 74 02 FF D0 83 C7 04 3B FE 72 F1", 1, 6, 0x17},
+                { "BE ?? ?? ?? ?? 8B C6 BF ?? ?? ?? ?? 3B C7 59 73 0F 8B 06 85 C0 74 02 FF D0 83 C6 04 3B F7 72 F1", 1, 8, 0x17},
+            };
+
+            for (UINT i = 0; i < qnumber(pat); i++)
+            {
+                ea_t match = find_binary(cinitFunc->startEA, cinitFunc->endEA, pat[i].pattern, 16, (SEARCH_DOWN | SEARCH_NOBRK | SEARCH_NOSHOW));
+                while (match != BADADDR)
+                {
+                    msg("  "EAFORMAT" Register _initterm(), pattern #%d.\n", match, i);
+                    ea_t start = getEa(match + pat[i].start);
+                    ea_t end   = getEa(match + pat[i].end);
+                    processRegisterInitterm(start, end, (match + pat[i].call));
+                    match = find_binary(match + 30, cinitFunc->endEA, pat[i].pattern, 16, (SEARCH_NEXT | SEARCH_DOWN | SEARCH_NOBRK | SEARCH_NOSHOW));
+                };
+            }
+        }
+        msg(" \n");
+        refreshUI();
+        if (WaitBox::updateAndCancelCheck())
+            return(TRUE);
+
+        // Process _initterm references
+        for (STRMAP::iterator it = inittermMap.begin(); it != inittermMap.end(); ++it)
+            processInitterm(it->first, it->second.c_str());
+        refreshUI();
+    }
+	CATCH()
+
+	return(FALSE);
+}
+
+// ================================================================================================
+
 
 // Return TRUE if address as a anterior comment
 inline BOOL hasAnteriorComment(ea_t ea)

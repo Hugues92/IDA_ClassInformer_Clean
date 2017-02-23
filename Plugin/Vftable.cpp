@@ -28,7 +28,17 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info, size_t parentSize)
     // Ideal flags 32bit: FF_DWRD, FF_0OFF, FF_REF, FF_NAME, FF_DATA, FF_IVL
     //dumpFlags(ea);
     flags_t flags = get_flags_novalue(ea);
-	if(hasRef(flags) && has_any_name(flags) && (isEa(flags) || isUnknown(flags)))
+	bool properVFT = TRUE;
+	//properVFT = properVFT && hasRef(flags);
+	//properVFT = properVFT && has_any_name(flags);
+	properVFT = properVFT && (isEa(flags) || isUnknown(flags));
+
+	if(!properVFT)
+	{
+		msg("\t\t\tUnreferenced vftable: "EAFORMAT": "EAFORMAT"-"EAFORMAT", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
+		return(FALSE);
+	}
+	else
     {
         // Get raw (auto-generated mangled, or user named) vft name
         //if (!get_name(BADADDR, ea, info.name, SIZESTR(info.name)))
@@ -88,10 +98,25 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info, size_t parentSize)
                     break;
                 }
             }
+			else  // Just for debugging
+			{
+				// If we see a ref at the first index it must be a function pointer
+				if (hasRef(indexFlags))
+				{
+					motive = 4;
+				}
+
+				// If we see a COL here it must be the start of another vftable
+				if (RTTI::_RTTICompleteObjectLocator::isValid(memberPtr))
+				{
+					motive = 5;
+				}
+			}
 
             // As needed fix ea_t pointer, and, or, missing code and function def here
             fixEa(ea);
-            fixFunction(memberPtr);
+            if (!fixFunction(memberPtr))
+				break;
 
             ea += sizeof(ea_t);
 			index++;
@@ -107,7 +132,7 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info, size_t parentSize)
     }
 
     if (BADADDR != ea)
-        msg("Cannot interpret vftable: "EAFORMAT": "EAFORMAT"-"EAFORMAT", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
+        msg("\t\t\tCannot interpret vftable: "EAFORMAT": "EAFORMAT"-"EAFORMAT", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
 	// dumpFlags(ea);
     return(FALSE);
 }
@@ -165,8 +190,15 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 	bool isUnk = false;
 	bool isFunc = false;
 	bool isPure = false;
+	bool isBug = false;
 	char sz[MAXSTR];
 	strcpy_s(sz, MAXSTR - 1, szBase);
+	LPCSTR szi = strstr(sz, "::_");	// Corrects a bug in previous version of Modified
+	if (szi && (sz + (strlen(sz) - 3) == szi))
+	{
+		//msg("  "EAFORMAT" ** Bugged member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
+		isBug = true;
+	}
 	while (LPSTR sep = strstr(sz, "::"))
 	{
 		sep[0] = '_';
@@ -191,7 +223,8 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 		//msg("  "EAFORMAT" ** Pure member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isPure = true;
 	}
-	if (isUnk || isFunc || isPure)
+
+	if (isUnk || isFunc || isPure || isBug)
 		return true;
 	return false;
 }
@@ -237,8 +270,18 @@ bool vftable::hasDefaultComment(ea_t entry, LPSTR cmnt, LPSTR* cmntData)
 					sz = strchr(cmnt, ')');
 					isDefault = true;
 				}
+				else
+				{
+					sz = strstr(cmnt, "::_");	// Corrects a bug in previous version of Modified
+					if (sz && (cmnt + (strlen(cmnt) - 3) == sz) )
+					{
+						// ignore those comments
+						sz = strchr(cmnt, ')');
+						isDefault = true;
+					}
+				}
 			}
-			//msg("  "EAFORMAT" ** Default comment '%s' [%s] **\n", entry, cmnt, sz);
+		//msg("  "EAFORMAT" ** Default comment '%s' [%s] **\n", entry, cmnt, sz);
 			*cmntData = strchr(cmnt, ')') + 2;
 			return isDefault;
 		}
