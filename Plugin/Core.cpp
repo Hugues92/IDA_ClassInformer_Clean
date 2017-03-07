@@ -65,6 +65,8 @@ BOOL optionPlaceStructs      = TRUE;
 BOOL optionProcessStatic     = TRUE;
 BOOL optionOverwriteComments = FALSE;
 BOOL optionAudioOnDone       = TRUE;
+BOOL optionDumpIdentical     = FALSE;
+UINT optionIterLevels		 = 25;
 
 // List box defs
 static const char LBTITLE[] = {"[Class Informer]"};
@@ -410,6 +412,18 @@ void CORE_Process(int arg)
             WaitBox::updateAndCancelCheck(-1);
             s_startTime = getTimeStamp();
 
+			// Undefine any temp name
+			UINT fq = get_func_qty();
+			for (UINT index = 0; index < fq; index++)
+			{
+				if (0 == index % 10000)
+					msgR("\t\t%35s Funcs:\t% 7d of % 7d\n", "Deleting temp functions names:", index + 1, fq);
+
+				func_t* funcTo = getn_func(index);
+				if (funcTo)
+					clearDefaultName(funcTo->startEA);
+			}
+
             // Add structure definitions to IDA once per session
             static BOOL createStructsOnce = FALSE;
             if (optionPlaceStructs && !createStructsOnce)
@@ -488,15 +502,23 @@ static void showEndStats()
 
 // ================================================================================================
 
-static void clearDefaultName(ea_t ear)
+static BOOL isTempName(ea_t ear)
 {
 	if (hasUniqueName(ear))
 	{
 		qstring n = get_true_name(ear);
 		LPCSTR nn = n.c_str();
-		if (nn == strstr(nn, "__ICI__"))
-			set_name(ear, "");
+		while (nn && (nn == strstr(nn, "j_"))) nn += 2;
+		if ((nn == strstr(nn, "__ICI__")) && (nn != strstr(nn, "__ICI__TooLong")))
+			return TRUE;
 	}
+	return FALSE;
+}
+
+static void clearDefaultName(ea_t ear)
+{
+	if (isTempName(ear))
+		set_name(ear, "");
 }
 
 static void clearDefaultComment(ea_t ea)
