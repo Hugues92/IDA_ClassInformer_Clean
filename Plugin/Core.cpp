@@ -408,7 +408,7 @@ void CORE_Process(int arg)
 
             msg("Working..\n");
             refreshUI();
-            WaitBox::show("Class Informer", "Please wait..", "url("STYLE_PATH"progress-style.qss)", ":/classinf/icon.png");
+            WaitBox::show("Class Informer", "Please wait..", "url(" STYLE_PATH "progress-style.qss)", ":/classinf/icon.png");
             WaitBox::updateAndCancelCheck(-1);
             s_startTime = getTimeStamp();
 
@@ -703,12 +703,12 @@ static void processRegisterInitterm(ea_t start, ea_t end, ea_t call)
             if (start > end)
                 swap_t(start, end);
 
-            msg("    "EAFORMAT" to "EAFORMAT" CTOR table.\n", start, end);
+            msg("    " EAFORMAT " to " EAFORMAT " CTOR table.\n", start, end);
             setIntializerTable(start, end, TRUE);
             set_cmt(call, "_initterm", TRUE);
         }
         else
-            msg("  ** Bad address range of "EAFORMAT", "EAFORMAT" for \"_initterm\" type ** <click address>.\n", start, end);
+            msg("  ** Bad address range of " EAFORMAT ", " EAFORMAT " for \"_initterm\" type ** <click address>.\n", start, end);
     }
 }
 
@@ -737,7 +737,7 @@ static UINT doInittermTable(func_t *func, ea_t start, ea_t end, LPCTSTR name)
                     // Start/ctor?
                     if (strstr(funcName, "cinit") || strstr(funcName, "tmaincrtstartup") || strstr(funcName, "start"))
                     {
-                        msg("    "EAFORMAT" to "EAFORMAT" CTOR table.\n", start, end);
+                        msg("    " EAFORMAT " to " EAFORMAT " CTOR table.\n", start, end);
                         setIntializerTable(start, end, TRUE);
                         found = TRUE;
                     }
@@ -745,7 +745,7 @@ static UINT doInittermTable(func_t *func, ea_t start, ea_t end, LPCTSTR name)
                     // Exit/dtor function?
                     if (strstr(funcName, "exit"))
                     {
-                        msg("    "EAFORMAT" to "EAFORMAT" DTOR table.\n", start, end);
+                        msg("    " EAFORMAT " to " EAFORMAT " DTOR table.\n", start, end);
                         setTerminatorTable(start, end);
                         found = TRUE;
                     }
@@ -755,16 +755,16 @@ static UINT doInittermTable(func_t *func, ea_t start, ea_t end, LPCTSTR name)
             if (!found)
             {
                 // Fall back to generic assumption
-                msg("    "EAFORMAT" to "EAFORMAT" CTOR/DTOR table.\n", start, end);
+                msg("    " EAFORMAT " to " EAFORMAT " CTOR/DTOR table.\n", start, end);
                 setCtorDtorTable(start, end);
                 found = TRUE;
             }
         }
         else
-            msg("    ** Miss matched segment table addresses "EAFORMAT", "EAFORMAT" for \"%s\" type **\n", start, end, name);
+            msg("    ** Miss matched segment table addresses " EAFORMAT ", " EAFORMAT " for \"%s\" type **\n", start, end, name);
     }
     else
-        msg("    ** Bad input address range of "EAFORMAT", "EAFORMAT" for \"%s\" type **\n", start, end, name);
+        msg("    ** Bad input address range of " EAFORMAT ", " EAFORMAT " for \"%s\" type **\n", start, end, name);
 
     return(found);
 }
@@ -780,7 +780,7 @@ static BOOL processInitterm(ea_t address, LPCTSTR name)
     ea_t xref = get_first_fcref_to(address);
     while (xref && (xref != BADADDR))
     {
-        msg("  "EAFORMAT" \"%s\" xref.\n", xref, name);
+        msg("  " EAFORMAT " \"%s\" xref.\n", xref, name);
 
         // Should be code
         if (isCode(get_flags_novalue(xref)))
@@ -800,7 +800,7 @@ static BOOL processInitterm(ea_t address, LPCTSTR name)
                 func_t *func = get_func(xref);
                 if (func && (instruction2 < func->startEA))
                 {
-                    //msg("   "EAFORMAT" arg2 outside of contained function **\n", func->startEA);
+                    //msg("   " EAFORMAT " arg2 outside of contained function **\n", func->startEA);
                     break;
                 }
 
@@ -833,7 +833,7 @@ static BOOL processInitterm(ea_t address, LPCTSTR name)
                         ea_t start = (instruction1 + 7 + *((PINT) &startOffset)); // TODO: 7 is hard coded instruction length, put this in arg2pat table?
                         ea_t end   = (instruction2 + 7 + *((PINT) &endOffset));
                         #endif
-                        msg("  "EAFORMAT" Two instruction pattern match #%d\n", match, i);
+                        msg("  " EAFORMAT " Two instruction pattern match #%d\n", match, i);
                         count += doInittermTable(func, start, end, name);
                         matched = TRUE;
                         break;
@@ -846,7 +846,7 @@ static BOOL processInitterm(ea_t address, LPCTSTR name)
             } while (FALSE);
         }
         else
-            msg("  "EAFORMAT" ** \"%s\" xref is not code! **\n", xref, name);
+            msg("  " EAFORMAT " ** \"%s\" xref is not code! **\n", xref, name);
 
         xref = get_next_fcref_to(address, xref);
     };
@@ -948,7 +948,7 @@ static BOOL processStaticTables()
                 ea_t match = find_binary(cinitFunc->startEA, cinitFunc->endEA, pat[i].pattern, 16, (SEARCH_DOWN | SEARCH_NOBRK | SEARCH_NOSHOW));
                 while (match != BADADDR)
                 {
-                    msg("  "EAFORMAT" Register _initterm(), pattern #%d.\n", match, i);
+                    msg("  " EAFORMAT " Register _initterm(), pattern #%d.\n", match, i);
                     ea_t start = getEa(match + pat[i].start);
                     ea_t end   = getEa(match + pat[i].end);
                     processRegisterInitterm(start, end, (match + pat[i].call));
@@ -1156,7 +1156,7 @@ static BOOL scanSeg4Cols(segment_t *seg)
     char name[64];
     if (get_true_segm_name(seg, name, SIZESTR(name)) <= 0)
         strcpy(name, "???");
-    msgR(" N: \"%s\", A: "EAFORMAT" - "EAFORMAT", S: %s.\n", name, seg->startEA, seg->endEA, byteSizeString(seg->size()));
+    msgR(" N: \"%s\", A: " EAFORMAT " - " EAFORMAT ", S: %s.\n", name, seg->startEA, seg->endEA, byteSizeString(seg->size()));
 
     UINT found = 0;
     if (seg->size() >= sizeof(RTTI::_RTTICompleteObjectLocator))
@@ -1320,7 +1320,7 @@ static BOOL scanSeg4Vftables(segment_t *seg, eaRefMap &colMap)
 	char name[64];
     if (get_true_segm_name(seg, name, SIZESTR(name)) <= 0)
         strcpy(name, "???");
-    msgR(" N: \"%s\", A: "EAFORMAT"-"EAFORMAT", S: %s. Pass 1\n", name, seg->startEA, seg->endEA, byteSizeString(seg->size()));
+    msgR(" N: \"%s\", A: " EAFORMAT "-" EAFORMAT ", S: %s. Pass 1\n", name, seg->startEA, seg->endEA, byteSizeString(seg->size()));
 
 
 	RTTI::maxClassNameLength = 0;
@@ -1359,7 +1359,7 @@ static BOOL scanSeg4Vftables(segment_t *seg, eaRefMap &colMap)
         }
 		if (found)
 		{
-			msgR(" N: \"%s\", A: "EAFORMAT"-"EAFORMAT", S: %s. Pass 2\n", name, seg->startEA, seg->endEA, byteSizeString(seg->size()));
+			msgR(" N: \"%s\", A: " EAFORMAT "-" EAFORMAT ", S: %s. Pass 2\n", name, seg->startEA, seg->endEA, byteSizeString(seg->size()));
 			for (UINT i = 0; i < RTTI::classList.size(); i++)
 				RTTI::classList[i].m_done = false;
 			for (ea_t ptr = startEA; ptr < endEA; ptr += sizeof(UINT))  //sizeof(ea_t)

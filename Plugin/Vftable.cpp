@@ -35,7 +35,7 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info, size_t parentSize)
 
 	if(!properVFT)
 	{
-		msg("\t\t\tUnreferenced vftable: "EAFORMAT": "EAFORMAT"-"EAFORMAT", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
+		msg("\t\t\tUnreferenced vftable: " EAFORMAT ": " EAFORMAT "-" EAFORMAT ", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
 		return(FALSE);
 	}
 	else
@@ -126,13 +126,13 @@ BOOL vftable::getTableInfo(ea_t ea, vtinfo &info, size_t parentSize)
         if ((info.methodCount = ((ea - start) / sizeof(ea_t))) > 0)
         {
             info.end = ea;
-            //msg(" vftable: "EAFORMAT"-"EAFORMAT", methods: %d\n", rtInfo.eaStart, rtInfo.eaEnd, rtInfo.uMethods);
+            //msg(" vftable: " EAFORMAT "-" EAFORMAT ", methods: %d\n", rtInfo.eaStart, rtInfo.eaEnd, rtInfo.uMethods);
             return(TRUE);
         }
     }
 
     if (BADADDR != ea)
-        msg("\t\t\tCannot interpret vftable: "EAFORMAT": "EAFORMAT"-"EAFORMAT", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
+        msg("\t\t\tCannot interpret vftable: " EAFORMAT ": " EAFORMAT "-" EAFORMAT ", methods: %d, Motive=%d\n", ea, info.start, info.end, info.methodCount, motive);
 	// dumpFlags(ea);
     return(FALSE);
 }
@@ -174,10 +174,10 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 {
 
 	LPCSTR szBase = szCurrName;
-	//msg("  "EAFORMAT" ** Member %s for %s **\n", eaMember, szBase, szClassName);
+	//msg("  " EAFORMAT " ** Member %s for %s **\n", eaMember, szBase, szClassName);
 	while (stristr(szBase, "j_") == szBase)
 	{
-		//msg("  "EAFORMAT" ** Jumping member %s for %s **\n", eaMember, szBase, szClassName);
+		//msg("  " EAFORMAT " ** Jumping member %s for %s **\n", eaMember, szBase, szClassName);
 		szBase += 2;
 	}
 	char demangledName[MAXSTR] = "";
@@ -196,7 +196,7 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 	LPCSTR szi = strstr(sz, "::_");	// Corrects a bug in previous version of Modified
 	if (szi && (sz + (strlen(sz) - 3) == szi))
 	{
-		//msg("  "EAFORMAT" ** Bugged member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
+		//msg("  " EAFORMAT " ** Bugged member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isBug = true;
 	}
 	while (LPSTR sep = strstr(sz, "::"))
@@ -210,17 +210,17 @@ bool vftable::IsDefault(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR szClassName
 	}
 	if (stristr(sz, "_unk"))
 	{
-		//msg("  "EAFORMAT" ** Unk member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
+		//msg("  " EAFORMAT " ** Unk member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isUnk = true;
 	}
 	if (stristr(sz, "_Func"))
 	{
-		//msg("  "EAFORMAT" ** Func member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
+		//msg("  " EAFORMAT " ** Func member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isFunc = true;
 	}
 	if (stristr(sz, "__purecall"))
 	{
-		//msg("  "EAFORMAT" ** Pure member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
+		//msg("  " EAFORMAT " ** Pure member %s for %s as %s **\n", eaMember, sz, szClassName, szCurrName);
 		isPure = true;
 	}
 
@@ -251,7 +251,7 @@ bool vftable::hasDefaultComment(ea_t entry, LPSTR cmnt, LPSTR* cmntData)
 	{
 		LPCSTR sz = NULL;
 		strcpy_s(cmnt, MAXSTR - 1, get_any_indented_cmt(entry));
-		//msg("  "EAFORMAT" ** Comment '%s' **\n", entry, cmnt);
+		//msg("  " EAFORMAT " ** Comment '%s' **\n", entry, cmnt);
 		if (cmntData && strstr(cmnt, " (#Func ") == cmnt)
 		{
 			sz = strstr(cmnt, "::Func");
@@ -281,13 +281,13 @@ bool vftable::hasDefaultComment(ea_t entry, LPSTR cmnt, LPSTR* cmntData)
 					}
 				}
 			}
-		//msg("  "EAFORMAT" ** Default comment '%s' [%s] **\n", entry, cmnt, sz);
+		//msg("  " EAFORMAT " ** Default comment '%s' [%s] **\n", entry, cmnt, sz);
 			*cmntData = strchr(cmnt, ')') + 2;
 			return isDefault;
 		}
 	}
 	//else
-	//	msg("  "EAFORMAT" ** No comment **\n", entry);
+	//	msg("  " EAFORMAT " ** No comment **\n", entry);
 	return false;
 }
 
@@ -298,7 +298,7 @@ int vftable::tryKnownMember(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR prefixN
 	char szClassName[MAXSTR] = "";
 	if (strlen(prefixName) > (MAXSTR - 2))
 	{
-		msgR("  "EAFORMAT" ** Class Name too long!\n", vft);
+		msgR("  " EAFORMAT " ** Class Name too long!\n", vft);
 		return iType;
 	}
 	strcpy_s(szClassName, MAXSTR - 1, prefixName);
@@ -311,13 +311,13 @@ int vftable::tryKnownMember(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR prefixN
 		flags_t flags = getFlags((ea_t)eaMember);
 		flags_t vftflags = getFlags(vft);
 
-		//msg("%s  "EAFORMAT" ** Processing member %s (%d) at "EAFORMAT" from "EAFORMAT" ["EAFORMAT"] **\n", eaJump != BADADDR ? "\t" : "", eaMember, szNewName, iIndex, vft, parentvft, flags);
+		//msg("%s  " EAFORMAT " ** Processing member %s (%d) at " EAFORMAT " from " EAFORMAT " [" EAFORMAT "] **\n", eaJump != BADADDR ? "\t" : "", eaMember, szNewName, iIndex, vft, parentvft, flags);
 
 		char szCmnt[MAXSTR] = "";
 		bool isDefaultCmnt = hasDefaultComment(vft, szCmnt, &szTemp) || (0 == strlen(szCmnt));
 		if (isDefaultCmnt)
 			set_cmt(vft, "", false);
-		//msg("  "EAFORMAT" ** Comment '%s' is default ? %d **\n", eaMember, szCmnt, isDefaultCmnt);
+		//msg("  " EAFORMAT " ** Comment '%s' is default ? %d **\n", eaMember, szCmnt, isDefaultCmnt);
 
 		// Check if it has a default name
 		bool isDefault = false;
@@ -353,18 +353,18 @@ int vftable::tryKnownMember(ea_t vft, ea_t eaMember, UINT iIndex, LPCSTR prefixN
 					bool isDefaultCmnt = hasDefaultComment(ea, szCmnt, &szTemp) || (0 == strlen(szCmnt));
 					if (isDefaultCmnt)
 						set_cmt(ea, "", false);
-					//msg("%s ="EAFORMAT" ** Processed member %s (%d) at "EAFORMAT" from "EAFORMAT" ["EAFORMAT"] **\n", eaJump != BADADDR ? "\t" : "", ea, szCurrName, iIndex, vft, parentvft, flags);
+					//msg("%s =" EAFORMAT " ** Processed member %s (%d) at " EAFORMAT " from " EAFORMAT " [" EAFORMAT "] **\n", eaJump != BADADDR ? "\t" : "", ea, szCurrName, iIndex, vft, parentvft, flags);
 				}
 			}
 			else
-				msg(" "EAFORMAT" ** Not code at this member! **\n", eaMember);
+				msg(" " EAFORMAT " ** Not code at this member! **\n", eaMember);
 		}
 
 		isDefaultCmnt = hasDefaultComment(eaMember, szCmnt, &szTemp) || (0 == strlen(szCmnt));
 		if (isDefaultCmnt)
 			set_cmt(eaMember, "", false);
 
-		//msg("  "EAFORMAT" ** Done member '%s' at %08X (%s) **\n", eaMember, szNewName, vft, szCmnt);
+		//msg("  " EAFORMAT " ** Done member '%s' at %08X (%s) **\n", eaMember, szNewName, vft, szCmnt);
 	}
 
 	return(iType);
@@ -388,7 +388,7 @@ void vftable::processMembers(LPCTSTR lpszName, ea_t eaStart, ea_t* eaEnd, LPCTST
 	UINT iIndex = 0;
 	UINT iCount = (*eaEnd - eaStart) / sizeof(ea_t);
 
-	//msg(" "EAFORMAT" to "EAFORMAT" as '%s' for %d from "EAFORMAT" : %d\n", eaStart, *eaEnd, lpszName, iCount, parentvft, parentCount);
+	//msg(" " EAFORMAT " to " EAFORMAT " as '%s' for %d from " EAFORMAT " : %d\n", eaStart, *eaEnd, lpszName, iCount, parentvft, parentCount);
 
 	while (eaAddress < *eaEnd)
 	{
@@ -398,7 +398,7 @@ void vftable::processMembers(LPCTSTR lpszName, ea_t eaStart, ea_t* eaEnd, LPCTST
 			// Missing/bad code?
 			if(!get_func(eaMember))
 			{
-				//msg(" "EAFORMAT" ** No member function here! Start:"EAFORMAT" End:"EAFORMAT" as '%s' %d of %d Parent: ["EAFORMAT" : %d] **\n", eaMember, eaStart, *eaEnd, lpszName, iIndex, iCount, parentvft, parentCount);
+				//msg(" " EAFORMAT " ** No member function here! Start:" EAFORMAT " End:" EAFORMAT " as '%s' %d of %d Parent: [" EAFORMAT " : %d] **\n", eaMember, eaStart, *eaEnd, lpszName, iIndex, iCount, parentvft, parentCount);
 				if (BADADDR == eaShorterEnd)
 					eaShorterEnd = eaAddress;
 				//fixFunction(eaMember);
@@ -410,13 +410,13 @@ void vftable::processMembers(LPCTSTR lpszName, ea_t eaStart, ea_t* eaEnd, LPCTST
 			}
 		}
 		else
-			msg(" "EAFORMAT" ** Failed to read member pointer! **\n", eaAddress);
+			msg(" " EAFORMAT " ** Failed to read member pointer! **\n", eaAddress);
 
 		eaAddress += sizeof(ea_t);
 	};
 	if (BADADDR != eaShorterEnd) {
 		*eaEnd = eaShorterEnd;
-		//msg(" "EAFORMAT" ** Shortened! **\n", eaShorterEnd);
+		//msg(" " EAFORMAT " ** Shortened! **\n", eaShorterEnd);
 	}
 }
 
@@ -426,7 +426,7 @@ ea_t vftable::getMemberName(LPSTR name, ea_t eaAddress)
 	bool found = false;
 	char szTemp[MAXSTR] = "";
 	strcpy_s(name, MAXSTR - 1, "");
-	//msg("  "EAFORMAT" GetMemberName:'%s' "EAFORMAT"\n", eaMember, name, eaAddress);
+	//msg("  " EAFORMAT " GetMemberName:'%s' " EAFORMAT "\n", eaMember, name, eaAddress);
 	if (getVerify_t(eaAddress, eaMember))
 	{
 		// Missing/bad code?
@@ -434,7 +434,7 @@ ea_t vftable::getMemberName(LPSTR name, ea_t eaAddress)
 			fixFunction(eaMember);
 		if (!get_func(eaMember))
 		{
-			msg(" "EAFORMAT" ** No member function here! **\n", eaMember);
+			msg(" " EAFORMAT " ** No member function here! **\n", eaMember);
 			eaMember = BADADDR;
 			return eaMember;
 		}
@@ -443,7 +443,7 @@ ea_t vftable::getMemberName(LPSTR name, ea_t eaAddress)
 		BYTE Byte = get_byte(eaMember);
 		if ((Byte == 0xE9) || (Byte == 0xEB))
 		{
-			//msg(" !"EAFORMAT" GetMemberName:'%s' "EAFORMAT"\n", eaMember, name, eaAddress);
+			//msg(" !" EAFORMAT " GetMemberName:'%s' " EAFORMAT "\n", eaMember, name, eaAddress);
 			eaAddress = eaMember;
 		}
 		flags_t flags = getFlags(eaAddress);
@@ -455,7 +455,7 @@ ea_t vftable::getMemberName(LPSTR name, ea_t eaAddress)
 				char * szResult = strchr(szTemp, ')') + 2;
 				strcpy_s(name, MAXSTR - 1, szResult);
 				found = true;
-				//msg(" *"EAFORMAT" GetMemberName:'%s' "EAFORMAT" %d\n", eaMember, name, eaAddress, flags);
+				//msg(" *" EAFORMAT " GetMemberName:'%s' " EAFORMAT " %d\n", eaMember, name, eaAddress, flags);
 			}
 		}
 		if (!found)
@@ -468,10 +468,10 @@ ea_t vftable::getMemberName(LPSTR name, ea_t eaAddress)
 	}
 	else
 	{
-		msg(" "EAFORMAT" ** Failed to read member pointer! **\n", eaAddress);
+		msg(" " EAFORMAT " ** Failed to read member pointer! **\n", eaAddress);
 		eaMember = BADADDR;
 	}
-	//msg(" ="EAFORMAT" GetMemberName:'%s' "EAFORMAT"\n", eaMember, name, eaAddress);
+	//msg(" =" EAFORMAT " GetMemberName:'%s' " EAFORMAT "\n", eaMember, name, eaAddress);
 	return eaMember;
 }
 

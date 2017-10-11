@@ -543,7 +543,7 @@ BOOL RTTI::_RTTICompleteObjectLocator::isValid(ea_t col)
                     ea_t classDescriptor = getEa(col + offsetof(_RTTICompleteObjectLocator, classDescriptor));
                     if (RTTI::_RTTIClassHierarchyDescriptor::isValid(classDescriptor))
                     {
-                        //msg(EAFORMAT" "EAFORMAT" "EAFORMAT" \n", col, typeInfo, classDescriptor);
+                        //msg(EAFORMAT" " EAFORMAT " " EAFORMAT " \n", col, typeInfo, classDescriptor);
                         return(TRUE);
                     }
                 }
@@ -569,7 +569,7 @@ BOOL RTTI::_RTTICompleteObjectLocator::isValid(ea_t col)
                                 ea_t classDescriptor = (colBase + (UINT64) cdOffset);
                                 if (RTTI::_RTTIClassHierarchyDescriptor::isValid(classDescriptor, colBase))
                                 {
-                                    //msg(EAFORMAT" "EAFORMAT" "EAFORMAT" \n", col, typeInfo, classDescriptor);
+                                    //msg(EAFORMAT" " EAFORMAT " " EAFORMAT " \n", col, typeInfo, classDescriptor);
                                     return(TRUE);
                                 }
                             }
@@ -632,9 +632,9 @@ void RTTI::_RTTICompleteObjectLocator::doStruct(ea_t col)
 
     // Set absolute address comments
     char buffer[64];
-    sprintf(buffer, "0x"EAFORMAT, typeInfo);
+    sprintf(buffer, "0x" EAFORMAT , typeInfo);
     set_cmt((col + offsetof(RTTI::_RTTICompleteObjectLocator, typeDescriptor)), buffer, TRUE);
-    sprintf(buffer, "0x"EAFORMAT, classDescriptor);
+    sprintf(buffer, "0x" EAFORMAT , classDescriptor);
     set_cmt((col + offsetof(RTTI::_RTTICompleteObjectLocator, classDescriptor)), buffer, TRUE);
     #endif
 }
@@ -715,7 +715,7 @@ void RTTI::_RTTIBaseClassDescriptor::doStruct(ea_t bcd, __out_bcount(MAXSTR) LPS
             ea_t chd = (colBase64 + (UINT64) chdOffset32);
 
             char buffer[64];
-            sprintf(buffer, "0x"EAFORMAT, chd);
+            sprintf(buffer, "0x" EAFORMAT , chd);
             set_cmt(chdOffset, buffer, TRUE);
             #endif
 
@@ -884,7 +884,7 @@ void RTTI::_RTTIClassHierarchyDescriptor::doStruct(ea_t chd, ea_t colBase64)
             ea_t baseClassArray = (colBase64 + (UINT64) baseClassArrayOffset);
 
             char buffer[MAXSTR];
-            sprintf(buffer, "0x"EAFORMAT, baseClassArray);
+            sprintf(buffer, "0x" EAFORMAT , baseClassArray);
             set_cmt((chd + offsetof(RTTI::_RTTIClassHierarchyDescriptor, baseClassArray)), buffer, TRUE);
             #endif
 
@@ -944,7 +944,7 @@ void RTTI::_RTTIClassHierarchyDescriptor::doStruct(ea_t chd, ea_t colBase64)
                     {
                         if (numBaseClasses == 1)
                         {
-                            sprintf(buffer, "  BaseClass 0x"EAFORMAT, bcd);
+                            sprintf(buffer, "  BaseClass 0x" EAFORMAT , bcd);
                             set_cmt(baseClassArray, buffer, FALSE);
                         }
                         else
@@ -1145,7 +1145,7 @@ void RTTI::CalcCTypeName(LPSTR cTypeName, LPCSTR prefixName)
 
 bool RTTI::AddNonRTTIclass(LPCSTR prefixName)
 {
-	//msg(" ="EAFORMAT" "EAFORMAT" ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
+	//msg(" =" EAFORMAT " " EAFORMAT " ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
 	classInfo ci;
 	bcdList list;
 	stripClassName(prefixName, ci.m_className);
@@ -1182,7 +1182,7 @@ bool RTTI::AddNonRTTIclass(LPCSTR prefixName)
 			found = true;
 			if (0 != s)
 			{
-				//msg("  ** Insert before "EAFORMAT" '%s' at %d\n", i, i->pk, i->index);
+				//msg("  ** Insert before " EAFORMAT " '%s' at %d\n", i, i->pk, i->index);
 				classPKeys.insert(i, aPK);
 			}
 			else
@@ -1237,7 +1237,7 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
     vftable::vtinfo vi;
     if (vftable::getTableInfo(vft, vi, 0))
     {
-        //msg(EAFORMAT" - "EAFORMAT" c: %d\n", vi.start, vi.end, vi.methodCount);
+        //msg(EAFORMAT" - " EAFORMAT " c: %d\n", vi.start, vi.end, vi.methodCount);
 
 	    // Get COL type name
         #ifndef __EA64__
@@ -1257,7 +1257,7 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
 			strcpy_s(demangledColName, colName);
 		char prefixName[MAXSTR];
 		strcpy_s(prefixName, demangledColName);
-		//msg("  "EAFORMAT" "EAFORMAT" ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
+		//msg("  " EAFORMAT " " EAFORMAT " ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
 
 		UINT chdAttributes = get_32bit(chd + offsetof(_RTTIClassHierarchyDescriptor, attributes));
         UINT offset = get_32bit(col + offsetof(_RTTICompleteObjectLocator, offset));
@@ -1329,7 +1329,7 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
                 // If not found in list, use the first base object instead
                 if (!bi)
                 {
-                    //msg("** "EAFORMAT" MI COL class offset: %X(%d) not in BCD.\n", vft, offset, offset);
+                    //msg("** " EAFORMAT " MI COL class offset: %X(%d) not in BCD.\n", vft, offset, offset);
                     for (UINT i = 0; i < numBaseClasses; i++)
                     {
                         if (list[i].m_pmd.pdisp != -1)
@@ -1403,11 +1403,11 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
 
         if (success)
         {
-			//msg(" ="EAFORMAT" "EAFORMAT" ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
+			//msg(" =" EAFORMAT " " EAFORMAT " ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
 			classInfo ci;
 			stripClassName(prefixName, ci.m_className);
 			CalcCTypeName(ci.m_cTypeName, prefixName);
-			//msg(" ="EAFORMAT" "EAFORMAT" \tclassName:'%s' cTypeName:'%s'\n", vft, col, ci.m_className.c_str(), ci.m_cTypeName);
+			//msg(" =" EAFORMAT " " EAFORMAT " \tclassName:'%s' cTypeName:'%s'\n", vft, col, ci.m_className.c_str(), ci.m_cTypeName);
 			strcpy_s(ci.m_colName, colName);
 			strcpy_s(ci.m_templateInfo.m_templatename, "");
 			ci.m_bcdlist = list;
@@ -1440,7 +1440,7 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
 					found = true;
 					if (0 != s)
 					{
-						//msg("  ** Insert before "EAFORMAT" '%s' at %d\n", i, i->pk, i->index);
+						//msg("  ** Insert before " EAFORMAT " '%s' at %d\n", i, i->pk, i->index);
 						classPKeys.insert(i, aPK);
 					}
 					else
@@ -1660,7 +1660,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 	vftable::vtinfo vi;
 	if (vftable::getTableInfo(vft, vi, 0))
 	{
-		//msg(EAFORMAT" - "EAFORMAT" c: %d\n", vi.start, vi.end, vi.methodCount);
+		//msg(EAFORMAT" - " EAFORMAT " c: %d\n", vi.start, vi.end, vi.methodCount);
 
 		// Get COL type name
 #ifndef __EA64__
@@ -1687,7 +1687,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 		ci->m_done = true;
 		list = ci->m_bcdlist;
 		numBaseClasses = ci->m_numBaseClasses;
-		//msgR(EAFORMAT" - "EAFORMAT" c: %5d %s %3d Entering class '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, ci->m_numBaseClasses, ci->m_classname);
+		//msgR(EAFORMAT" - " EAFORMAT " c: %5d %s %3d Entering class '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, ci->m_numBaseClasses, ci->m_classname);
 
 		int baseClassIndex = 0;
 		UINT realNumBaseClasses = numBaseClasses;
@@ -1731,11 +1731,11 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 						}
 					if (!found)
 					{
-						//msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s' not found for '%s' **\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+						//msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Class '%s' not found for '%s' **\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
 						AddNonRTTIclass(plainName);
 					}
 					//else
-					//	msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+					//	msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
 					
 					// Make sure our vfTable is at least as big as our parent's
 					vftable::getTableInfo(vft, vi, parentSize);
@@ -1762,7 +1762,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 				// Plain, no inheritance object(s)
 				cmt.sprnt("%s%s: ", ((colName[3] == 'V') ? "" : "struct "), demangledColName);
 				isTopLevel = TRUE;
-				//msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s' is base\n", vi.start, vi.end, vi.methodCount, outputBias, ci->m_classname);
+				//msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Class '%s' is base\n", vi.start, vi.end, vi.methodCount, outputBias, ci->m_classname);
 			}
 			if (placed > 1)
 				cmt += ';';
@@ -1798,11 +1798,11 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 						}
 					if (!found)
 					{
-						//msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s' not found for '%s'!!!\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+						//msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Class '%s' not found for '%s'!!!\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
 						AddNonRTTIclass(plainName);
 					}
 					//else
-					//	msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+					//	msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
 
 					// Make sure our vfTable is at least as big as our parent's
 					vftable::getTableInfo(vft, vi, parentSize);
@@ -1828,7 +1828,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 				// If not found in list, use the first base object instead
 				if (!bi)
 				{
-					//msg("** "EAFORMAT" MI COL class offset: %X(%d) not in BCD.\n", vft, offset, offset);
+					//msg("** " EAFORMAT " MI COL class offset: %X(%d) not in BCD.\n", vft, offset, offset);
 					for (UINT i = 0; i < numBaseClasses; i++)
 					{
 						if (list[i].m_pmd.pdisp != -1)
@@ -1856,11 +1856,11 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 						}
 				if (!found)
 				{
-					//msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s' not found for '%s'!!!\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+					//msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Class '%s' not found for '%s'!!!\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
 					AddNonRTTIclass(plainName);
 				}
 				//else
-				//	msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
+				//	msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Class '%s'     found for '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, plainName, ci->m_classname);
 
 				// Make sure our vfTable is at least as big as our parent's
 				vftable::getTableInfo(vft, vi, parentSize);
@@ -1978,7 +1978,7 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 				strcpy_s(cLine, MAXSTR - 1, "typedef __ICI__VTABLE__ *__ICI__LPVTABLE__;");
 				int c = h2ti(idati, NULL, cLine);
 			}
-			//msgR(EAFORMAT" - "EAFORMAT" c: %5d %s Leaving  class '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, ci->m_classname);
+			//msgR(EAFORMAT" - " EAFORMAT " c: %5d %s Leaving  class '%s'\n", vi.start, vi.end, vi.methodCount, outputBias, ci->m_classname);
 		}
 	}
 	outputBias[strlen(outputBias)-2] = 0;
