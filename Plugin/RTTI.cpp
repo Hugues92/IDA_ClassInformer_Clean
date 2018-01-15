@@ -270,6 +270,30 @@ void RTTI::addDefinitionsToIda()
     #undef ADD_MEMBER
 }
 
+void RTTI::stripAnonymousNamespace(classInfo *ci)
+{
+	if (LPCSTR sz = strstr(ci->m_cTypeName, "::"))
+	{
+		char *className;
+		sz += 2;
+		if (findClassInList(sz))
+			return;
+		// getPlainTypeName(ci.m_className, className);
+		className = ci->m_className;
+		while (className = strstr(className, "`anonymous namespace'::"))
+		{
+			className += strlen("`anonymous namespace'");
+			strcpy_s(ci->m_className, className);
+		}
+		className = ci->m_cTypeName;
+		while (className = strstr(className, "_anonymous_namespace_::"))
+		{
+			className += strlen("_anonymous_namespace_");
+			strcpy_s(ci->m_cTypeName, className);
+		}
+	}
+}
+
 static tid_t lpvftableId = 0;
 
 // Version 1.05, manually set fields and then try "doStruct()"
@@ -632,9 +656,9 @@ void RTTI::_RTTICompleteObjectLocator::doStruct(ea_t col)
 
     // Set absolute address comments
     char buffer[64];
-    sprintf(buffer, "0x" EAFORMAT , typeInfo);
+    sprintf(buffer, "0x" EAFORMAT, typeInfo);
     set_cmt((col + offsetof(RTTI::_RTTICompleteObjectLocator, typeDescriptor)), buffer, TRUE);
-    sprintf(buffer, "0x" EAFORMAT , classDescriptor);
+    sprintf(buffer, "0x" EAFORMAT, classDescriptor);
     set_cmt((col + offsetof(RTTI::_RTTICompleteObjectLocator, classDescriptor)), buffer, TRUE);
     #endif
 }
@@ -715,7 +739,7 @@ void RTTI::_RTTIBaseClassDescriptor::doStruct(ea_t bcd, __out_bcount(MAXSTR) LPS
             ea_t chd = (colBase64 + (UINT64) chdOffset32);
 
             char buffer[64];
-            sprintf(buffer, "0x" EAFORMAT , chd);
+            sprintf(buffer, "0x" EAFORMAT, chd);
             set_cmt(chdOffset, buffer, TRUE);
             #endif
 
@@ -884,7 +908,7 @@ void RTTI::_RTTIClassHierarchyDescriptor::doStruct(ea_t chd, ea_t colBase64)
             ea_t baseClassArray = (colBase64 + (UINT64) baseClassArrayOffset);
 
             char buffer[MAXSTR];
-            sprintf(buffer, "0x" EAFORMAT , baseClassArray);
+            sprintf(buffer, "0x" EAFORMAT, baseClassArray);
             set_cmt((chd + offsetof(RTTI::_RTTIClassHierarchyDescriptor, baseClassArray)), buffer, TRUE);
             #endif
 
@@ -944,7 +968,7 @@ void RTTI::_RTTIClassHierarchyDescriptor::doStruct(ea_t chd, ea_t colBase64)
                     {
                         if (numBaseClasses == 1)
                         {
-                            sprintf(buffer, "  BaseClass 0x" EAFORMAT , bcd);
+                            sprintf(buffer, "  BaseClass 0x" EAFORMAT, bcd);
                             set_cmt(baseClassArray, buffer, FALSE);
                         }
                         else
@@ -1112,8 +1136,8 @@ void RTTI::ReplaceForCTypeName(LPSTR cTypeName, LPCSTR currName)
 	QT::qsnprintf(cTypeName, MAXSTR - 2, "__ICI__TooLong%0.5d__", lastTooLong);
 	if (strlen(currName) < (MAXSTR - 25)) {
 		strcpy_s(workingName, MAXSTR - 2, currName);
-		while (LPSTR sz = strchr(workingName, '`')) *sz = '_';
 		while (LPSTR sz = strchr(workingName, '\'')) *sz = '_';
+		while (LPSTR sz = strchr(workingName, '`')) *sz = '_';
 		while (LPSTR sz = strchr(workingName, '<')) *sz = '_';
 		while (LPSTR sz = strchr(workingName, '>')) *sz = '_';
 		while (LPSTR sz = strchr(workingName, ',')) *sz = '_';
@@ -1128,9 +1152,10 @@ void RTTI::ReplaceForCTypeName(LPSTR cTypeName, LPCSTR currName)
 		while (LPSTR sz = strchr(workingName, ']')) *sz = '_';
 		while (LPSTR sz = strchr(workingName, '~')) *sz = '_';
 		if (strlen(workingName) < (MAXSTR - 25))
+		{
 			strcpy_s(cTypeName, MAXSTR - 1, workingName);
-		else
 			lastTooLong--;
+		}
 	}
 	//msgR("  ** PrefixName:'%s' as '%s'\n", prefixName, cTypeName);
 }
@@ -1148,8 +1173,26 @@ bool RTTI::AddNonRTTIclass(LPCSTR prefixName)
 	//msg(" =" EAFORMAT " " EAFORMAT " ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
 	classInfo ci;
 	bcdList list;
-	stripClassName(prefixName, ci.m_className);
-	CalcCTypeName(ci.m_cTypeName, prefixName);
+	char tempName[MAXSTR];
+	char newName[MAXSTR];
+	if (strlen(prefixName) > MAXSTR - 25)
+	{
+		::qsnprintf(tempName, (MAXSTR - 1), "__ICI__classTooLongRenamed_%d__", lastTooLong++);
+		msgR("\t\t\tToo long: '%s'\t\t\t\treplaced by '%s'\n", prefixName, tempName);
+		strcpy_s(newName, MAXSTR, tempName);
+	}
+	else
+		strcpy_s(newName, MAXSTR, prefixName);
+	stripClassName(newName, tempName);
+	strcpy_s(ci.m_className, (MAXSTR - 1), tempName);
+	size_t i = 0;
+	while (findClassInList(ci.m_className))
+	{
+		::qsnprintf(ci.m_className, (size_t)(MAXSTR - 1), "%s_%d", tempName, i);
+		msgR("\t\t\tTrying className:'%s'\n", ci.m_className);
+		i++;
+	}
+	CalcCTypeName(ci.m_cTypeName, ci.m_className);
 	strcpy_s(ci.m_colName, "");
 	strcpy_s(ci.m_templateInfo.m_templatename, "");
 	ci.m_bcdlist = list;
@@ -1187,7 +1230,7 @@ bool RTTI::AddNonRTTIclass(LPCSTR prefixName)
 			}
 			else
 			{
-				msg("  ** This class already exists! '%s' [as '%s']\n", aPK.pk, i->pk);
+				msg("  ** This class %d already exists! '%s' at index %d. [as '%s' or '%s'] 1\n", aPK.index, aPK.pk, i->index, ci.m_className, ci.m_cTypeName);
 				refreshUI();
 				return false;
 			}
@@ -1208,10 +1251,12 @@ bool RTTI::AddNonRTTIclass(LPCSTR prefixName)
 		{
 			found = true;
 			if (0 != s)
+			{
 				classInherit.insert(i, cii);
+			}
 			else
 			{
-				msg("  ** This class already exists! '%s'\n", ci.m_className);
+				msg("  ** This class %d already exists! '%s' at index %d. 2\n", cii.index, ci.m_className, i->index);
 				refreshUI();
 				return false;
 			}
@@ -1405,8 +1450,23 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
         {
 			//msg(" =" EAFORMAT " " EAFORMAT " ColName:'%s' DemangledName:'%s' PrefixName:'%s'\n", vft, col, colName, demangledColName, prefixName);
 			classInfo ci;
-			stripClassName(prefixName, ci.m_className);
-			CalcCTypeName(ci.m_cTypeName, prefixName);
+			char tempName[MAXSTR];
+			if (strlen(prefixName) > MAXSTR - 25)
+			{
+				::qsnprintf(tempName, (MAXSTR - 1), "__ICI__classTooLongRenamed_%d__", lastTooLong++);
+				msgR("\t\t\tToo long: '%s'\t\t\t\treplaced by '%s'\n", prefixName, tempName);
+				strcpy_s(prefixName, MAXSTR, tempName);
+			}
+			stripClassName(prefixName, tempName);
+			strcpy_s(ci.m_className, (MAXSTR - 1), tempName);
+			size_t i = 0;
+			while (findClassInList(ci.m_className))
+			{
+				::qsnprintf(ci.m_className, (size_t)(MAXSTR - 1), "%s_%d", tempName, i);
+				msgR("\t\t\tTrying className:'%s' for vft:"EAFORMAT"\n", ci.m_className, vft);
+				i++;
+			}
+			CalcCTypeName(ci.m_cTypeName, ci.m_className);
 			//msg(" =" EAFORMAT " " EAFORMAT " \tclassName:'%s' cTypeName:'%s'\n", vft, col, ci.m_className.c_str(), ci.m_cTypeName);
 			strcpy_s(ci.m_colName, colName);
 			strcpy_s(ci.m_templateInfo.m_templatename, "");
@@ -1445,7 +1505,7 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
 					}
 					else
 					{
-						msg("  ** This class already exists! '%s' [as '%s']\n", aPK.pk, i->pk);
+						msg("  ** This class %d already exists! '%s' at index %d. [as '%s' or '%s'] 3\n", aPK.index, aPK.pk, i->index, ci.m_className, ci.m_cTypeName);
 						refreshUI();
 					}
 					break;
@@ -1472,7 +1532,7 @@ void RTTI::processVftablePart1(ea_t vft, ea_t col)
 					}
 					else
 					{
-						//msg("  ** This class already exists! '%s'\n", ci.m_className);
+						// msg("  ** This class %d already exists! '%s' at index %d. 4\n", cii.index, ci.m_className, i->index);
 						refreshUI();
 					}
 					break;
@@ -1508,6 +1568,10 @@ RTTI::classInfo* RTTI::findClassInList(LPCSTR className)
 	for (UINT i = 0; i < classList.size(); i++)
 		if (0 == stricmp(classList[i].m_className, className))
 			return &RTTI::classList[i];
+	if (strchr(className, '_'))
+		for (UINT i = 0; i < classList.size(); i++)
+			if (0 == stricmp(classList[i].m_cTypeName, className))
+				return &RTTI::classList[i];
 	return NULL;
 }
 
@@ -1532,7 +1596,7 @@ RTTI::classInfo* RTTI::findColInList(ea_t col)
 LPSTR RTTI::ClassListPK(LPSTR pk, RTTI::classInfo ci)
 {
 	if (pk)
-		_snprintf(pk, MAXSTR - 1, "%01d%06d%s", !ci.m_templateInfo.m_template, ci.m_numBaseClasses, ci.m_className);
+		_snprintf(pk, MAXSTR - 1, "%01d%06d%s", ci.m_templateInfo.m_template ? 0 : 1, ci.m_numBaseClasses, ci.m_className);
 	return pk;
 }
 
@@ -1747,6 +1811,9 @@ void RTTI::processVftablePart2(ea_t vft, ea_t col)
 						{
 							//msg("  ** Found NM class '%s' in list at index %d (%d) **\n", plainName, index, ci->m_parents.size());
 							ci->m_parents.push_back(index);
+							RTTI::classInfo * pci = &RTTI::classList[index];
+							index = findIndexInList(ci->m_className);
+							pci->m_childs.push_back(index);
 						}
 						//else
 						//	msg("  ** Cannot find NM class '%s' in list **\n", plainName);

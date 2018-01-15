@@ -110,6 +110,9 @@ namespace RTTI
     const WORD IS_TOP_LEVEL = 0x8000;
 
     void freeWorkingData();
+
+	struct classInfo;
+	void stripAnonymousNamespace(classInfo *ci);
 	void addDefinitionsToIda();
     void processVftablePart1(ea_t eaTable, ea_t col);
 	void processVftablePart2(ea_t eaTable, ea_t col);
@@ -142,6 +145,7 @@ namespace RTTI
 	};
 
 	typedef qvector<UINT> parentInfo;
+	typedef qvector<UINT> childInfo;
 	struct classInfo
 	{
 		char			m_className[MAXSTR];
@@ -158,6 +162,7 @@ namespace RTTI
 		size_t			m_size;
 		bcdList			m_bcdlist;
 		parentInfo		m_parents;
+		childInfo		m_childs;
 		templateInfo	m_templateInfo;
 	};
 	typedef qvector<classInfo> ClassList;

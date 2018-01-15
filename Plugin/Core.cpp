@@ -66,7 +66,7 @@ BOOL optionProcessStatic     = TRUE;
 BOOL optionOverwriteComments = FALSE;
 BOOL optionAudioOnDone       = TRUE;
 BOOL optionDumpIdentical     = FALSE;
-UINT optionIterLevels		 = 25;
+UINT optionIterLevels		 = 10;
 
 // List box defs
 static const char LBTITLE[] = {"[Class Informer]"};
@@ -84,7 +84,9 @@ static const LPCSTR columnHeader[LBCOLUMNCOUNT] =
 static int idaapi uiCallback(PVOID obj, int eventID, va_list va);
 static void freeWorkingData()
 {
+#ifndef __DEBUG
     try
+#endif
     {
         if (uiHookInstalled)
         {
@@ -107,7 +109,9 @@ static void freeWorkingData()
             netNode = NULL;
         }
     }
-    CATCH()
+#ifndef __DEBUG
+	CATCH()
+#endif
 }
 
 // Initialize
@@ -280,8 +284,10 @@ static QWidget *findChildWidget(QWidgetList &wl, LPCSTR className)
 // If IDs are constant can use "static QWidget *QWidget::find(WId);"?
 void customizeChooseWindow()
 {
-    try
-    {
+#ifndef __DEBUG
+	try
+#endif
+	{
         // Get parent chooser dock widget
         QWidgetList pl = QApplication::activeWindow()->findChildren<QWidget*>("[Class Informer]");
         if (QWidget *dw = findChildWidget(pl, "IDADockWidget"))
@@ -311,7 +317,9 @@ void customizeChooseWindow()
         else
             msg("** customizeChooseWindow(): \"TChooserView\" not found!\n");
     }
-    CATCH()
+#ifndef __DEBUG
+	CATCH()
+#endif
 }
 
 // UI callback to handle chooser window coloring
@@ -347,8 +355,10 @@ static HWND WINAPI getIdaHwnd(){ return((HWND)callui(ui_get_hwnd).vptr); }
 
 void CORE_Process(int arg)
 {
-    try
-    {
+#ifndef __DEBUG
+	try
+#endif
+	{
         char version[16];
         sprintf(version, "%u.%u", HIBYTE(MY_VERSION), LOBYTE(MY_VERSION));
         msg("\n>> Class Informer: v: %s, built: %s, By Sirmabus\n", version, __DATE__);
@@ -482,7 +492,9 @@ void CORE_Process(int arg)
             }
         }
     }
-    CATCH()
+#ifndef __DEBUG
+	CATCH()
+#endif
 }
 
 // Print out end stats
@@ -535,7 +547,9 @@ static void clearDefaultComment(ea_t ea)
 // Fix/create label and comment C/C++ initializer tables
 static void setIntializerTable(ea_t start, ea_t end, BOOL isCpp)
 {
+#ifndef __DEBUG
 	try
+#endif
 	{
         if (UINT count = ((end - start) / sizeof(ea_t)))
         {
@@ -584,13 +598,17 @@ static void setIntializerTable(ea_t start, ea_t end, BOOL isCpp)
                 staticCCtorCnt++;
         }
     }
+#ifndef __DEBUG
 	CATCH()
+#endif
 }
 
 // Fix/create label and comment C/C++ terminator tables
 static void setTerminatorTable(ea_t start, ea_t end)
 {
+#ifndef __DEBUG
 	try
+#endif
 	{
         if (UINT count = ((end - start) / sizeof(ea_t)))
         {
@@ -636,13 +654,17 @@ static void setTerminatorTable(ea_t start, ea_t end)
 			staticCDtorCnt++;
         }
     }
+#ifndef __DEBUG
 	CATCH()
+#endif
 }
 
 // "" for when we are uncertain of ctor or dtor type table
 static void setCtorDtorTable(ea_t start, ea_t end)
 {
+#ifndef __DEBUG
 	try
+#endif
 	{
         if (UINT count = ((end - start) / sizeof(ea_t)))
         {
@@ -688,7 +710,9 @@ static void setCtorDtorTable(ea_t start, ea_t end)
 			staticCtorDtorCnt++;
         }
     }
+#ifndef __DEBUG
 	CATCH()
+#endif
 }
 
 
@@ -864,7 +888,9 @@ static BOOL processStaticTables()
 
     // x64 __tmainCRTStartup, _CRT_INIT
 
+#ifndef __DEBUG
 	try
+#endif
 	{
         // Locate _initterm() and _initterm_e() functions
         STRMAP inittermMap;
@@ -966,7 +992,9 @@ static BOOL processStaticTables()
             processInitterm(it->first, it->second.c_str());
         refreshUI();
     }
+#ifndef __DEBUG
 	CATCH()
+#endif
 
 	return(FALSE);
 }
@@ -1237,8 +1265,10 @@ static BOOL scanSeg4Cols(segment_t *seg)
 // Locate COL by descriptor list
 static BOOL findCols()
 {
-    try
-    {
+#ifndef __DEBUG
+	try
+#endif
+	{
         #ifdef _DEVMODE
         TIMESTAMP startTime = getTimeStamp();
         #endif
@@ -1300,14 +1330,20 @@ static BOOL findCols()
             }
         }
 
-        char numBuffer[32];
-        msgR("     Total COL: %s\n", prettyNumberString(colList.size(), numBuffer));
-        #ifdef _DEVMODE
-        msgR("COL scan time: %.3f\n", (getTimeStamp() - startTime));
-        #endif
+		try
+		{
+			char numBuffer[32];
+			msgR("     Total COL: %s\n", prettyNumberString(colList.size(), numBuffer));
+#ifdef _DEVMODE
+			msgR("COL scan time: %.3f\n", (getTimeStamp() - startTime));
+#endif
+		}
+		CATCH()
     }
-    CATCH()
-    return(FALSE);
+#ifndef __DEBUG
+	CATCHTRUE()
+#endif
+	return(FALSE);
 }
 
 // Locate vftables
@@ -1321,7 +1357,6 @@ static BOOL scanSeg4Vftables(segment_t *seg, eaRefMap &colMap)
     if (get_true_segm_name(seg, name, SIZESTR(name)) <= 0)
         strcpy(name, "???");
     msgR(" N: \"%s\", A: " EAFORMAT "-" EAFORMAT ", S: %s. Pass 1\n", name, seg->startEA, seg->endEA, byteSizeString(seg->size()));
-
 
 	RTTI::maxClassNameLength = 0;
 	UINT found = 0;
@@ -1390,13 +1425,13 @@ static BOOL scanSeg4Vftables(segment_t *seg, eaRefMap &colMap)
 
 	if (found)
 	{
-        char numBuffer[32];
+		char numBuffer[32];
 		msgR("     Total VFT: %s	Longuest name: %d\n", prettyNumberString(found, numBuffer), RTTI::maxClassNameLength);
 	}
 	#ifdef _DEVMODE
 	msgR("VFT scan time: %.3f\n", (getTimeStamp() - startTime));
 	#endif
-    return(FALSE);
+	return(FALSE);
 }
 
 bool lookupVftInClassList(LPCSTR demangledColName, ea_t* parentvft, UINT* parentCount) {
@@ -1417,7 +1452,9 @@ bool lookupVftInClassList(LPCSTR demangledColName, ea_t* parentvft, UINT* parent
 
 static BOOL findVftables()
 {
+#ifndef __DEBUG
 	try
+#endif
 	{
 #ifdef _DEVMODE
 		TIMESTAMP startTime = getTimeStamp();
@@ -1525,12 +1562,13 @@ static BOOL findVftables()
 			vftable::processMembers(ci->m_colName, ci->m_start, &ci->m_end, ci->m_cTypeName, parentvft, parentCount);
 			ci->m_done = true;
 		}
-#ifdef _DEVMODE
+		#ifdef _DEVMODE
 		msgR("vftable scan time: %.3f\n", (getTimeStamp() - startTime));
-#endif
+		#endif
 	}
+#ifndef __DEBUG
 	CATCHTRUE()
-
+#endif
 	return(FALSE);
 }
 
@@ -1542,8 +1580,10 @@ static BOOL getRttiData()
     // Free RTTI working data on return
     struct OnReturn  { ~OnReturn() { RTTI::freeWorkingData(); }; } onReturn;
 
-    try
-    {
+#ifndef __DEBUG
+	try
+#endif
+	{
         // ==== Locate __type_info_root_node
         BOOL aborted = FALSE;
 
@@ -1560,13 +1600,16 @@ static BOOL getRttiData()
         refreshUI();
         if(findVftables())
             return(TRUE);
-		
-		// colList = COLs left that don't have a vft reference
 
-        // Could use the unlocated ref lists typeDescList & colList around for possible separate listing, etc.
-        // They get cleaned up on return of this function anyhow.
-    }
-    CATCH()
+			// colList = COLs left that don't have a vft reference
+
+			// Could use the unlocated ref lists typeDescList & colList around for possible separate listing, etc.
+			// They get cleaned up on return of this function anyhow.
+	}
+#ifndef __DEBUG
+	CATCH()
+#endif
 
     return(FALSE);
 }
+
